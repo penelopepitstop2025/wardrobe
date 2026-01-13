@@ -11,6 +11,12 @@ export default function WardrobeLedger() {
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [currentRecommendation, setCurrentRecommendation] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [showProfileUpload, setShowProfileUpload] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [openAiApiKey, setOpenAiApiKey] = useState(null);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -22,27 +28,114 @@ export default function WardrobeLedger() {
       const isArtifact = typeof window.storage !== 'undefined';
       
       if (isArtifact) {
-        const [itemsResult, inspirationResult, historyResult] = await Promise.all([
+        const [itemsResult, inspirationResult, historyResult, profileResult] = await Promise.all([
           window.storage.get('wardrobe-items').catch(() => null),
           window.storage.get('inspiration-sources').catch(() => null),
-          window.storage.get('outfit-history').catch(() => null)
+          window.storage.get('outfit-history').catch(() => null),
+          window.storage.get('profile-photo').catch(() => null)
         ]);
 
         if (itemsResult?.value) setItems(JSON.parse(itemsResult.value));
         if (inspirationResult?.value) setInspiration(JSON.parse(inspirationResult.value));
         if (historyResult?.value) setOutfitHistory(JSON.parse(historyResult.value));
+        if (profileResult?.value) setProfilePhoto(profileResult.value);
       } else {
         // Use localStorage for Vercel/standard deployment
         const itemsData = localStorage.getItem('wardrobe-items');
         const inspirationData = localStorage.getItem('inspiration-sources');
         const historyData = localStorage.getItem('outfit-history');
+        const profileData = localStorage.getItem('profile-photo');
 
         if (itemsData) setItems(JSON.parse(itemsData));
         if (inspirationData) setInspiration(JSON.parse(inspirationData));
         if (historyData) setOutfitHistory(JSON.parse(historyData));
+        if (profileData) setProfilePhoto(profileData);
+        
+        const apiKeyData = localStorage.getItem('openai-api-key');
+        if (apiKeyData) setOpenAiApiKey(apiKeyData);
       }
     } catch (error) {
       console.error('Error loading data:', error);
+    }
+  };
+
+  const saveApiKey = (key) => {
+    setOpenAiApiKey(key);
+    try {
+      localStorage.setItem('openai-api-key', key);
+    } catch (error) {
+      console.error('Error saving API key:', error);
+    }
+  };
+
+  const generateOutfitImage = async () => {
+    if (!openAiApiKey) {
+      setShowApiKeyInput(true);
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    
+    try {
+      const imagePrompt = `Create a photorealistic, high-quality fashion photograph in the style of a high-end menswear catalog (similar to Anglo-Italian or Campbell's of Beauly aesthetic). 
+
+The image should show a well-dressed gentleman wearing:
+${currentRecommendation.items?.join(', ') || currentRecommendation.itemIds?.map(id => items.find(i => i.id === id)?.name).filter(Boolean).join(', ')}
+
+Setting: ${currentRecommendation.occasion || 'Classic, timeless setting'}
+Style notes: ${currentRecommendation.styling_notes || 'Refined, understated elegance'}
+
+The photo should be:
+- Natural daylight, soft shadows
+- Clean, minimal background
+- Professional fashion photography aesthetic
+- Focus on the outfit's details and fit
+- Sophisticated, editorial style`;
+
+      const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openAiApiKey}`
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: imagePrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        alert(`Error: ${data.error.message}`);
+        if (data.error.message.includes('API key')) {
+          setShowApiKeyInput(true);
+        }
+      } else {
+        setGeneratedImage(data.data[0].url);
+      }
+    } catch (error) {
+      console.error('Error generating image:', error);
+      alert('Failed to generate image. Please check your API key.');
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const saveProfilePhoto = async (photo) => {
+    setProfilePhoto(photo);
+    try {
+      const isArtifact = typeof window.storage !== 'undefined';
+      if (isArtifact) {
+        await window.storage.set('profile-photo', photo);
+      } else {
+        localStorage.setItem('profile-photo', photo);
+      }
+    } catch (error) {
+      console.error('Error saving profile photo:', error);
     }
   };
 
@@ -384,14 +477,29 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
       `}</style>
 
       <div className="max-w-7xl mx-auto px-4 md:px-12 py-6 md:py-16">
+        {/* Hero Image */}
+        <div className="relative w-full mb-12 md:mb-16 overflow-hidden fade-in -mx-4 md:mx-0" style={{ height: '40vh', minHeight: '250px', maxHeight: '400px' }}>
+          <div className="absolute inset-0 bg-gray-100">
+            <img 
+              src="/Screenshot 2026-01-13 155022.png"
+              alt="Wardrobe"
+              className="w-full h-full object-cover"
+              style={{ objectPosition: 'center' }}
+            />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/60 to-transparent"></div>
+        </div>
+
         {/* Header */}
-        <header className="pb-6 md:pb-12 mb-8 md:mb-16 fade-in">
-          <h1 className="serif text-3xl md:text-6xl font-normal mb-2 md:mb-4 text-center tracking-tight">
-            Wardrobe
-          </h1>
-          <p className="text-center text-xs md:text-sm text-muted uppercase tracking-widest">
-            A Personal Archive
-          </p>
+        <header className="pb-6 md:pb-12 mb-8 md:mb-16 fade-in" style={{ marginTop: '-6rem' }}>
+          <div className="relative z-10">
+            <h1 className="serif text-3xl md:text-6xl font-normal mb-2 md:mb-4 text-center tracking-tight">
+              Wardrobe
+            </h1>
+            <p className="text-center text-xs md:text-sm text-muted uppercase tracking-widest">
+              A Personal Archive
+            </p>
+          </div>
         </header>
 
         {/* Navigation */}
@@ -420,6 +528,12 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
           >
             Archive
           </button>
+          <button
+            className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            Settings
+          </button>
         </nav>
 
         {/* Wardrobe Tab */}
@@ -442,7 +556,7 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {items.map(item => (
-                  <div key={item.id} className="card group cursor-pointer overflow-hidden">
+                  <div key={item.id} className="card group cursor-pointer overflow-hidden relative">
                     {item.image && (
                       <div className="relative w-full h-80 overflow-hidden bg-gray-100">
                         <img 
@@ -450,6 +564,19 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
                           alt={item.name}
                           className="w-full h-full object-cover image-hover"
                         />
+                        {/* Delete button overlay */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Delete ${item.name}?`)) {
+                              saveItems(items.filter(i => i.id !== item.id));
+                            }
+                          }}
+                          className="absolute top-3 right-3 bg-white/90 hover:bg-red-600 hover:text-white text-gray-800 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          style={{ backdropFilter: 'blur(10px)' }}
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     )}
                     <div className="p-6">
@@ -463,6 +590,9 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
                       </div>
                       <div className="text-sm text-body space-y-1">
                         <p>{item.season} • {item.formality}</p>
+                        {item.resaleValue && (
+                          <p className="font-medium">Est. Value: £{item.resaleValue}</p>
+                        )}
                         {item.notes && (
                           <p className="mt-3 pt-3 border-t border-gray-200 italic text-muted">
                             {item.notes}
@@ -472,6 +602,18 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Total Value Summary */}
+            {items.length > 0 && items.some(item => item.resaleValue) && (
+              <div className="mt-12 pt-8 border-t border-gray-200">
+                <div className="flex justify-between items-center max-w-md mx-auto">
+                  <span className="text-sm uppercase tracking-wider text-muted">Total Estimated Value</span>
+                  <span className="serif text-2xl">
+                    £{items.reduce((sum, item) => sum + (parseFloat(item.resaleValue) || 0), 0).toFixed(2)}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -577,7 +719,57 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
                       )}
                     </div>
 
-                    <div className="flex gap-4 justify-center mt-12 pt-8 border-t border-gray-200">
+                    {/* Image Generation Section */}
+                    <div className="mt-12 pt-8 border-t border-gray-200">
+                      <div className="bg-gray-50 p-6 rounded border border-gray-200">
+                        <h4 className="text-sm uppercase tracking-widest mb-4 text-muted">Visualize This Outfit</h4>
+                        
+                        {!openAiApiKey && (
+                          <div className="mb-4">
+                            <p className="text-sm text-body mb-3">
+                              Add your OpenAI API key to generate outfit images with DALL-E 3
+                            </p>
+                            <button 
+                              className="btn-secondary"
+                              onClick={() => setShowApiKeyInput(true)}
+                            >
+                              Add API Key
+                            </button>
+                          </div>
+                        )}
+
+                        {openAiApiKey && !generatedImage && (
+                          <button 
+                            className="btn-primary w-full"
+                            onClick={generateOutfitImage}
+                            disabled={isGeneratingImage}
+                          >
+                            {isGeneratingImage ? 'Generating Image...' : '✨ Generate Outfit Image'}
+                          </button>
+                        )}
+
+                        {generatedImage && (
+                          <div>
+                            <img 
+                              src={generatedImage} 
+                              alt="Generated outfit visualization"
+                              className="w-full rounded border border-gray-200 mb-4"
+                            />
+                            <button 
+                              className="btn-secondary w-full"
+                              onClick={() => {
+                                setGeneratedImage(null);
+                                generateOutfitImage();
+                              }}
+                            >
+                              Generate New Image
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 justify-center mt-6">
                       <button className="btn-secondary" onClick={() => setShowRecommendation(false)}>
                         Close
                       </button>
@@ -587,6 +779,8 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
                       <button className="btn-secondary" onClick={generateOutfit}>
                         Try Again
                       </button>
+                    </div>
+
                     </div>
                   </div>
                 )}
@@ -695,6 +889,69 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
             )}
           </div>
         )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="fade-in max-w-2xl mx-auto">
+            <h2 className="text-2xl font-light mb-10">Settings</h2>
+            
+            <div className="space-y-8">
+              {/* API Key Management */}
+              <div className="border border-gray-200 p-6">
+                <h3 className="text-lg mb-4">OpenAI API Key</h3>
+                <p className="text-sm text-body mb-4">
+                  Used for generating AI outfit visualizations with DALL-E 3
+                </p>
+                
+                {openAiApiKey ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-sm text-muted font-mono">
+                        {openAiApiKey.substring(0, 8)}...{openAiApiKey.substring(openAiApiKey.length - 4)}
+                      </span>
+                      <span className="text-xs text-green-600 uppercase tracking-wider">Active</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <button 
+                        className="btn-secondary"
+                        onClick={() => setShowApiKeyInput(true)}
+                      >
+                        Update Key
+                      </button>
+                      <button 
+                        className="btn-secondary"
+                        onClick={() => {
+                          if (confirm('Remove API key? You won\'t be able to generate images until you add a new one.')) {
+                            saveApiKey(null);
+                            setOpenAiApiKey(null);
+                          }
+                        }}
+                      >
+                        Remove Key
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => setShowApiKeyInput(true)}
+                  >
+                    Add API Key
+                  </button>
+                )}
+              </div>
+
+              {/* App Info */}
+              <div className="border border-gray-200 p-6">
+                <h3 className="text-lg mb-4">About</h3>
+                <div className="text-sm text-body space-y-2">
+                  <p>Wardrobe - A Personal Archive</p>
+                  <p className="text-xs text-muted">Your wardrobe data is stored locally on this device</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Item Modal */}
@@ -718,6 +975,57 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
           }}
         />
       )}
+
+      {/* API Key Input Modal */}
+      {showApiKeyInput && (
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+          <div className="bg-white max-w-md w-full p-8">
+            <div className="border-b border-gray-200 pb-6 mb-6">
+              <h2 className="serif text-2xl mb-2">OpenAI API Key</h2>
+              <p className="text-sm text-body">
+                Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com</a>
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm uppercase tracking-wider mb-2 text-muted">
+                API Key
+              </label>
+              <input
+                type="password"
+                placeholder="sk-..."
+                defaultValue={openAiApiKey || ''}
+                id="api-key-input"
+                className="w-full"
+              />
+              <p className="text-xs text-muted mt-2">
+                Your key is stored locally and never sent to our servers
+              </p>
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                className="btn-secondary flex-1"
+                onClick={() => setShowApiKeyInput(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary flex-1"
+                onClick={() => {
+                  const key = document.getElementById('api-key-input').value;
+                  if (key) {
+                    saveApiKey(key);
+                    setShowApiKeyInput(false);
+                  }
+                }}
+              >
+                Save Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -732,7 +1040,8 @@ function AddItemModal({ onClose, onSave }) {
     season: 'all-season',
     formality: 'smart-casual',
     notes: '',
-    image: ''
+    image: '',
+    resaleValue: ''
   });
 
   const handleImageUpload = (e) => {
@@ -880,6 +1189,19 @@ function AddItemModal({ onClose, onSave }) {
                 <img src={formData.image} alt="Preview" className="w-full h-64 object-cover" />
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm uppercase tracking-wider mb-2 text-muted">
+              Estimated Resale Value (£)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.resaleValue}
+              onChange={(e) => setFormData({ ...formData, resaleValue: e.target.value })}
+              placeholder="250.00"
+            />
           </div>
 
           <div>
