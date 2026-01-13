@@ -11,8 +11,6 @@ export default function WardrobeLedger() {
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [currentRecommendation, setCurrentRecommendation] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState(null);
-  const [showProfileUpload, setShowProfileUpload] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [openAiApiKey, setOpenAiApiKey] = useState(null);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
@@ -28,28 +26,24 @@ export default function WardrobeLedger() {
       const isArtifact = typeof window.storage !== 'undefined';
       
       if (isArtifact) {
-        const [itemsResult, inspirationResult, historyResult, profileResult] = await Promise.all([
+        const [itemsResult, inspirationResult, historyResult] = await Promise.all([
           window.storage.get('wardrobe-items').catch(() => null),
           window.storage.get('inspiration-sources').catch(() => null),
-          window.storage.get('outfit-history').catch(() => null),
-          window.storage.get('profile-photo').catch(() => null)
+          window.storage.get('outfit-history').catch(() => null)
         ]);
 
         if (itemsResult?.value) setItems(JSON.parse(itemsResult.value));
         if (inspirationResult?.value) setInspiration(JSON.parse(inspirationResult.value));
         if (historyResult?.value) setOutfitHistory(JSON.parse(historyResult.value));
-        if (profileResult?.value) setProfilePhoto(profileResult.value);
       } else {
         // Use localStorage for Vercel/standard deployment
         const itemsData = localStorage.getItem('wardrobe-items');
         const inspirationData = localStorage.getItem('inspiration-sources');
         const historyData = localStorage.getItem('outfit-history');
-        const profileData = localStorage.getItem('profile-photo');
 
         if (itemsData) setItems(JSON.parse(itemsData));
         if (inspirationData) setInspiration(JSON.parse(inspirationData));
         if (historyData) setOutfitHistory(JSON.parse(historyData));
-        if (profileData) setProfilePhoto(profileData);
         
         const apiKeyData = localStorage.getItem('openai-api-key');
         if (apiKeyData) setOpenAiApiKey(apiKeyData);
@@ -125,19 +119,6 @@ The photo should be:
     }
   };
 
-  const saveProfilePhoto = async (photo) => {
-    setProfilePhoto(photo);
-    try {
-      const isArtifact = typeof window.storage !== 'undefined';
-      if (isArtifact) {
-        await window.storage.set('profile-photo', photo);
-      } else {
-        localStorage.setItem('profile-photo', photo);
-      }
-    } catch (error) {
-      console.error('Error saving profile photo:', error);
-    }
-  };
 
   const saveItems = async (newItems) => {
     setItems(newItems);
