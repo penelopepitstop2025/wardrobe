@@ -243,7 +243,8 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
       const data = await response.json();
       const aiResponse = data.content.find(block => block.type === "text")?.text || "";
       
-      const cleanResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
+      // Remove markdown code fences
+      const cleanResponse = aiResponse.replace(/```json|```/g, '').trim();
       const recommendation = JSON.parse(cleanResponse);
 
       const outfitItemIds = recommendation.outfit.items.map(itemName => {
