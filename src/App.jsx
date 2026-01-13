@@ -377,21 +377,25 @@ Respond ONLY with a JSON object in this exact format (no markdown, no backticks)
         .text-muted {
           color: #999;
         }
+        nav::-webkit-scrollbar { display: none; }
+        @media (max-width: 768px) {
+          .tab-button { white-space: nowrap; font-size: 11px; padding: 1rem 0.75rem; }
+        }
       `}</style>
 
-      <div className="max-w-7xl mx-auto px-6 md:px-12 py-12 md:py-16">
+      <div className="max-w-7xl mx-auto px-4 md:px-12 py-6 md:py-16">
         {/* Header */}
-        <header className="pb-12 mb-16 fade-in">
-          <h1 className="serif text-5xl md:text-6xl font-normal mb-4 text-center tracking-tight">
+        <header className="pb-6 md:pb-12 mb-8 md:mb-16 fade-in">
+          <h1 className="serif text-3xl md:text-6xl font-normal mb-2 md:mb-4 text-center tracking-tight">
             Wardrobe
           </h1>
-          <p className="text-center text-sm text-muted uppercase tracking-widest">
+          <p className="text-center text-xs md:text-sm text-muted uppercase tracking-widest">
             A Personal Archive
           </p>
         </header>
 
         {/* Navigation */}
-        <nav className="flex justify-center gap-8 mb-16 border-b border-gray-200">
+        <nav className="flex justify-center gap-4 md:gap-8 mb-10 md:mb-16 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 md:justify-center border-b border-gray-200">
           <button
             className={`tab-button ${activeTab === 'wardrobe' ? 'active' : ''}`}
             onClick={() => setActiveTab('wardrobe')}
